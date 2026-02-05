@@ -1,29 +1,38 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function CameraView() {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const [cameraOn, setCameraOn] = useState(false);
 
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-            });
+    useEffect(() => {
+        if (!cameraOn) return;
 
-            streamRef.current = stream;
-            videoRef.current.srcObject = stream;
-            setCameraOn(true);
-        } catch (err) {
-            console.error("Camera access denied:", err);
-        }
-    };
+        const enableCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user" },
+                });
 
-    const stopCamera = () => {
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        videoRef.current.srcObject = null;
-        setCameraOn(false);
-    };
+                streamRef.current = stream;
+
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    await videoRef.current.play();
+                }
+            } catch (err) {
+                console.error("Camera error:", err);
+                setCameraOn(false);
+            }
+        };
+
+        enableCamera();
+
+        return () => {
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+        };
+    }, [cameraOn]);
 
     return (
         <div className="w-full max-w-md bg-zinc-900 rounded-2xl p-4 shadow-lg">
@@ -32,23 +41,25 @@ export default function CameraView() {
                 Sign Language to Text
             </h1>
 
-            {/* Camera Container */}
-            <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden mb-4 flex items-center justify-center">
+            {/* Camera View */}
+            <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden mb-4">
                 {cameraOn ? (
                     <video
                         ref={videoRef}
-                        autoPlay
                         playsInline
+                        muted
                         className="w-full h-full object-cover"
                     />
                 ) : (
-                    <p className="text-zinc-400 text-sm">Camera is off</p>
+                    <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-zinc-400 text-sm">Camera is OFF</p>
+                    </div>
                 )}
             </div>
 
-            {/* Controls */}
+            {/* Toggle Button */}
             <button
-                onClick={cameraOn ? stopCamera : startCamera}
+                onClick={() => setCameraOn((prev) => !prev)}
                 className={`w-full py-3 rounded-xl font-medium transition
           ${
               cameraOn
@@ -56,7 +67,7 @@ export default function CameraView() {
                   : "bg-emerald-600 hover:bg-emerald-700"
           }`}
             >
-                {cameraOn ? "Stop Camera" : "Start Camera"}
+                Camera {cameraOn ? "OFF" : "ON"}
             </button>
 
             {/* Prediction Panel */}
