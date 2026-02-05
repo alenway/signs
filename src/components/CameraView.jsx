@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from "react";
 
 export default function CameraView() {
     const videoRef = useRef(null);
+    const canvasRef = useRef(null);
     const streamRef = useRef(null);
-    const [cameraOn, setCameraOn] = useState(false);
 
+    const [cameraOn, setCameraOn] = useState(false);
+    const [capturedImage, setCapturedImage] = useState(null);
+
+    // Handle camera ON / OFF
     useEffect(() => {
         if (!cameraOn) return;
 
-        const enableCamera = async () => {
+        const startCamera = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "user" },
@@ -26,13 +30,30 @@ export default function CameraView() {
             }
         };
 
-        enableCamera();
+        startCamera();
 
         return () => {
-            streamRef.current?.getTracks().forEach((t) => t.stop());
+            streamRef.current?.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
         };
     }, [cameraOn]);
+
+    // Capture frame from video
+    const captureFrame = () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video || !canvas) return;
+
+        const SIZE = 224; // ML input size
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, SIZE, SIZE);
+
+        const imageData = canvas.toDataURL("image/jpeg");
+        setCapturedImage(imageData);
+    };
 
     return (
         <div className="w-full max-w-md bg-zinc-900 rounded-2xl p-4 shadow-lg">
@@ -57,7 +78,7 @@ export default function CameraView() {
                 )}
             </div>
 
-            {/* Toggle Button */}
+            {/* Camera Toggle */}
             <button
                 onClick={() => setCameraOn((prev) => !prev)}
                 className={`w-full py-3 rounded-xl font-medium transition
@@ -70,18 +91,29 @@ export default function CameraView() {
                 Camera {cameraOn ? "OFF" : "ON"}
             </button>
 
-            {/* Prediction Panel */}
-            <div className="mt-4 flex items-center justify-between bg-zinc-800 rounded-xl px-4 py-3">
-                <div>
-                    <p className="text-xs text-zinc-400">Prediction</p>
-                    <p className="text-2xl font-bold">—</p>
-                </div>
+            {/* Capture Button */}
+            <button
+                onClick={captureFrame}
+                disabled={!cameraOn}
+                className="w-full mt-3 py-3 rounded-xl font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            >
+                Capture Frame
+            </button>
 
-                <div className="text-right">
-                    <p className="text-xs text-zinc-400">Confidence</p>
-                    <p className="text-lg font-medium">—%</p>
+            {/* Captured Image Preview */}
+            {capturedImage && (
+                <div className="mt-4">
+                    <p className="text-xs text-zinc-400 mb-2">Captured Frame</p>
+                    <img
+                        src={capturedImage}
+                        alt="Captured"
+                        className="w-32 h-32 rounded-lg object-cover border border-zinc-700"
+                    />
                 </div>
-            </div>
+            )}
+
+            {/* Hidden Canvas */}
+            <canvas ref={canvasRef} className="hidden" />
         </div>
     );
 }
